@@ -1,0 +1,58 @@
+{
+  "name": "vector-atc-desktop",
+  "productName": "VECTOR ATC",
+  "version": "1.8.0",
+  "description": "VECTOR ATC: a voice air traffic control game",
+  "author": "Moat Softwares",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "node dist.js"
+  },
+  "build": {
+    "appId": "com.moatsoftwares.vectoratc",
+    "productName": "VECTOR ATC",
+    "artifactName": "VECTOR-ATC-Setup-${version}.${ext}",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "build/icon.png"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "shortcutName": "VECTOR ATC"
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://atc.moatsoftwares.com/download/update/"
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "../public",
+        "to": "game",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ]
+  },
+  "devDependencies": {
+    "electron": "^39.8.10",
+    "electron-builder": "^26.18.0"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
+  }
+}

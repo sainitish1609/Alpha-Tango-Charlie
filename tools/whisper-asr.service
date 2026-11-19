@@ -1,0 +1,12 @@
+[Unit]
+Description=Whisper speech recognition for VECTOR (whisper.cpp on the GPU)
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/Work/asr
+ExecStart=%h/Work/asr/whisper.cpp/build-cuda/bin/whisper-server -m %h/Work/asr/models/ggml-large-v3-turbo-q8_0.bin --host 127.0.0.1 --port 8178 -l en -nt -t 4
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

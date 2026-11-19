@@ -1,0 +1,19 @@
+{
+  "name": "vector-atc",
+  "version": "2.0.0",
+  "private": true,
+  "description": "VECTOR voice ATC with live AI pilots (Claude) and neural radio voices (ElevenLabs)",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "mock": "node server.mjs --mock"
+  },
+  "engines": {
+    "node": ">=20.12"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
+    "onnxruntime-node": "^1.31.1",
+    "phonemizer": "^1.2.1"
+  }
+}

@@ -1,0 +1,29 @@
+# secrets: never commit
+.env
+.env.*
+!.env.example
+.session-key
+certs/
+*.pem
+*.key
+*.pfx
+*.p12
+
+# dependencies and build output
+node_modules/
+desktop/node_modules/
+desktop/dist/
+
+# caches, large local files, runtime data
+cache/
+asr-bench/
+models/
+downloads/
+data/leaderboard.json
+data/replays/
+
+# local tooling
+.claude/
+*.log
+.DS_Store
+Thumbs.db
