@@ -1257,6 +1257,7 @@ function groundBlocked(ac) {
   for (const o of S.aircraft) {
     if (o === ac || !onGround(o) || o.phase === 'parked') continue;
     if (o.phase === 'gate') continue; // parked at a stand, clear of the taxiway
+    if (ac.passB && ac.passB.o === o && S.t < ac.passB.until) continue; // a standoff where the other isn't on our route: we go
     if (o.phase === 'pushing' && o.path.length) { // a pushback: deep in the ramp alley it isn't in the way yet; and whoever is on its spot should clear it
       const st = NODES[o.node]; if (st && st.kind === 'gate' && dist(o.x, o.y, st.x, st.y) < 0.006) continue; // still parked: it waits for us
       const ln = NODES[o.path[0]];
@@ -1319,13 +1320,18 @@ function headOnYield(ac) {
     let i = -1;
     for (let k = 0; k < mine.length - 1; k++) if (theirs.has(mine[k + 1] + '>' + mine[k])) { i = k; break; }
     if (i < 0) continue;      // no shared stretch in opposite directions
-    if (i === 0) continue;    // already on it: the other one waits
+    // On it only once it has moved off the junction where the stretch starts: sitting at that junction it is
+    // at the entrance, and must give way like anyone else (two at the two ends used to both go: nose to nose).
+    const h = ac.hist || [], prev = h[h.length - 1] === ac.node ? h[h.length - 2] : h[h.length - 1];
+    const atNode = dist(ac.x, ac.y, NODES[ac.node].x, NODES[ac.node].y) < 1e-4 && !(prev && theirs.has(ac.node + '>' + prev)); // came along the stretch: it's on it
+    if (i === 0 && !atNode) continue; // already on it: the other one waits
     if (i > 1) continue;      // not there yet
-    // the stretch starts at the next junction, path[0]
-    const j = NODES[ac.path[0]], myD = dist(ac.x, ac.y, j.x, j.y);
+    // the stretch starts here (at the junction it sits on) or at the next junction, path[0]
+    const j = i === 0 ? NODES[ac.node] : NODES[ac.path[0]], myD = dist(ac.x, ac.y, j.x, j.y);
     let oi = Infinity, oEntry = null; // where the other aircraft joins the shared stretch
     for (let k = 0; k < mine.length - 1; k++) { const r = theirs.get(mine[k + 1] + '>' + mine[k]); if (r && r.i < oi) { oi = r.i; oEntry = r; } }
-    const oInside = oEntry && oEntry.i === 0;
+    const oh = o.hist || [], oPrev = oh[oh.length - 1] === o.node ? oh[oh.length - 2] : oh[oh.length - 1];
+    const oInside = oEntry && oEntry.i === 0 && (dist(o.x, o.y, NODES[o.node].x, NODES[o.node].y) >= 1e-4 || (oPrev && mine.includes(oPrev) && mine.includes(o.node))); // moved onto it, not just waiting at its end
     const oD = oEntry ? Math.max(0, oEntry.d - dist(NODES[o.node].x, NODES[o.node].y, o.x, o.y)) : Infinity;
     const iGo = !oInside && (myD < oD - 0.01 || (Math.abs(myD - oD) <= 0.01 && ac.id < o.id) || o.phase === 'pushing');
     if (!iGo && myD < 0.05) return o; // hold short of the junction, clear of the other's route
@@ -1437,6 +1443,11 @@ function moveAlongPath(ac, dt, kts, backwards) {
       const ring = [ac]; let x = b; while (x && !ring.includes(x) && ring.length < 8) { ring.push(x); x = x.blockedBy || x.waitFor; }
       ac.flags.nextTow = S.t + 30;
       if (x === ac && ac.id === Math.max(...ring.map(r => r.id)) && towBack(ac, b)) { ac.blockedBy = null; return; }
+    }
+    // two waiting on each other where only one is really in the other's way: the one whose route stays clear of the other goes
+    if (!backwards && b.blockedBy === ac && ac.blockT > 8) {
+      const clearOf = (p, q) => !p.path.slice(0, 30).some(id => NODES[id] && dist(NODES[id].x, NODES[id].y, q.x, q.y) < 0.012); // its way on doesn't run through the other's spot (alongside, on a parallel lane, is fine)
+      if (clearOf(ac, b) && (!clearOf(b, ac) || ac.id < b.id)) { ac.passB = { o: b, until: S.t + 30 }; ac.blockT = 0; ac.blockedBy = null; ac._b = null; return; }
     }
     if (!backwards && b.blockedBy === ac && ac.blockT > (ac.id > b.id ? 6 : 10) && S.t >= (ac.flags.nextReroute || 0)) { // nose to nose
       if (reroute(ac, b)) { ac.blockT = 0; ac.blockedBy = null; ac.flags.nextReroute = S.t + 20; }
@@ -1552,7 +1563,7 @@ function stepTakeoff(ac, dt) {
 function stepRollout(ac, dt) {
   const R = ARRR(), fwd = S.flow === 'W' ? -1 : 1, r = ac.hdg * Math.PI / 180;
   ac.spd = Math.max(30, ac.spd - 5 * dt * (window.Env ? Env.braking() : 1));
-  const ahead = S.aircraft.find(o => o !== ac && onGround(o) && Math.abs(o.y - R.y) < 0.02 && (o.x - ac.x) * fwd > 0 && Math.abs(o.x - ac.x) < 0.25);
+  const ahead = S.aircraft.find(o => o !== ac && onGround(o) && !['holdshort', 'vacated', 'gate', 'parked'].includes(o.phase) && Math.abs(o.y - R.y) < 0.02 && o.x >= R.x1 - 0.01 && o.x <= R.x2 + 0.01 && (o.x - ac.x) * fwd > 0 && Math.abs(o.x - ac.x) < 0.25);
   if (ahead) ac.spd = Math.abs(ahead.x - ac.x) < GSEP + 0.01 ? 0 : Math.min(ac.spd, Math.max(12, ahead.spd));
   const step = Math.max(3, ac.spd + (window.Env ? Env.along(ac.hdg, 0) * clamp((ac.spd - 30) / 40, 0, 1) : 0)) / 3600 * dt; // the wind matters while it is fast; at taxi speed it rolls on its own
   // exits that lead to the stands, are not the departures' way in, and have nobody waiting in them
@@ -2005,7 +2016,9 @@ function parseCommands(t) {
     // the frequency settles it first: at Heathrow "London Control" is both departures and the en-route sector
     const f = t.match(/\b(1[1-3]\d)(?:\.|\s(?:point|decimal)\s|\s)?(\d{1,3})\b/); // "119.725", or "119725" once normalized
     const fv = f ? parseFloat(f[1] + '.' + f[2]) : null;
-    let to = f ? Object.keys(FREQ).find(k => Math.abs(parseFloat(FREQ[k]) - fv) < 0.003) || null : null;
+    // a frequency two units share (Chambéry's Clearance and Ground on 121.900): the name said picks one; Ground before Clearance
+    const cand = f ? Object.keys(FREQ).filter(k => Math.abs(parseFloat(FREQ[k]) - fv) < 0.003) : [];
+    let to = cand.length > 1 ? (mk && cand.includes(map[mk[1]]) ? map[mk[1]] : cand.includes('GND') ? 'GND' : cand[0]) : cand[0] || null;
     if (!to && mk) to = map[mk[1]];
     if (to) c.push({ k: 'contact', to, kw: mk ? mk[1] : null });
   } else if (has(/\bfrequency change approved\b/)) c.push({ k: 'contact', to: 'CTR' });
