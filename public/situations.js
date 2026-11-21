@@ -440,7 +440,7 @@
     watch() {
       const now = S.t;
       for (const k in this.armed) if (now > this.armed[k]) delete this.armed[k];
-      for (const k in this.closures) if (now >= this.closures[k].until) { delete this.closures[k]; sys(`Runway ${k === S.rwyDep ? depRwyName() : arrRwyName()} is open again: inspection complete.`, 'tip'); }
+      for (const k in this.closures) if (now >= this.closures[k].until) { delete this.closures[k]; sys(`Runway ${RWY[k] ? RWY[k].names[S.flow] : k} is open again: inspection complete.`, 'tip'); }
       if (this.hazard && now - this.hazard.t > 600) this.hazard = null;
       if (this.cells.length && now > this.cellsUntil) { this.cells = []; sys('The thunderstorms have moved away.', 'tip'); }
       for (const c of this.cells) { const w = (S.wind.dir + 180) * Math.PI / 180; c.x += Math.sin(w) * 0.004; c.y += Math.cos(w) * 0.004; }
@@ -911,7 +911,7 @@
           if (!h.efcT || S.t > h.efcT - 60) { const t = Math.max(stackEfc(h.fix, ac), blockedT + 120 + (n - 1) * 180); return P('Holding: update the EFC', `${cs}, expect further clearance ${hhmm(t)}`, `${cs}, expect further clearance ▢time`, 'The runway is still blocked and its EFC is running out. Give a new one before it passes; a crew with no radio would leave the hold at the old time. ' + RULES); }
           return P(`Holding, number ${n} at ${h.fix}`, `(${cs} holds at ${h.fix}, ${fmtAlt(myAlt)}${h.efc ? ', EFC ' + h.efc : ''}. Nothing to say until the runway opens.)`, '', RULES, true);
         }
-        const others = S.aircraft.filter(a => a.kind === 'arr' && !onGround(a) && !a.hold && !a.loc && a !== ac).length;
+        const others = S.aircraft.filter(a => a.kind === 'arr' && !onGround(a) && !a.hold && !a.loc && a !== ac && dist(0, 0, a.x, a.y) < 25).length; // ones still out at the edge of the airspace come after the stack
         // the bottoms of all the stacks take turns: the one holding longest goes first
         const bottoms = S.aircraft.filter(a => a.hold && !onGround(a) && holders(a.hold.fix).sort((p, q) => p.tgtAlt - q.tgtAlt)[0] === a), first = bottoms.sort((p, q) => (p.hold.since ?? 0) - (q.hold.since ?? 0))[0] === ac;
         if (n === 1 && ((first && others < (mixedOps() ? 2 : 3)) || (h.efcT && S.t >= h.efcT - 60 && others < 4))) {

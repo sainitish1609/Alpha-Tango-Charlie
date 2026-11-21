@@ -153,6 +153,16 @@ Seven real airports from OpenStreetMap (`tools/build-airports.mjs`): Vancouver, 
 - **Multiplayer** (menu → Multiplayer): one player hosts — their game runs the airport — and gets a four-letter code; others join and take free positions (Clearance, Ground, Tower, Approach); the AI keeps the rest. Everyone sees the same traffic and log; each player's calls go to the host's game, and pilots answer on that player's frequency. The server relays (`/api/mp/…`, a live event stream); nothing is stored.
 - **Offline (Windows app):** Server → Offline (this computer), or start the app with `--offline`. The game's files travel inside the app; it serves them itself, with no account or internet. Pilots speak with the Windows voices, the weather is simulated and you type or click your calls (speech recognition needs the game server). With Graphics quality on Low it suits older PCs.
 
+## Runway control
+
+The **RWY** button in the top bar opens the runway panel:
+
+- Each runway: use it for **departures**, **arrivals** or **both**; **close** it for 5, 10 or 20 minutes or until you reopen it; **reopen** it.
+- Closing a runway in use moves its traffic to the other runway: arrivals come off the old approach for vectors to the new final, departures are re-routed to the new holding point, with a new ATIS letter. When it reopens (and nobody is on short final) the usual setup comes back.
+- With one runway (Salzburg, Juliana, Madeira, Jersey, Chambéry), arrivals go into the hold while it's closed, departures wait, and **Divert arrivals** sends the airborne ones to their alternates.
+- **Auto** (on by default): a runway blocked by an aircraft that has stopped on it for 45 seconds closes by itself and traffic moves to the other runway; it reopens 20 seconds after it's clear. Closures from situations (debris, inspections) move traffic the same way.
+- **Turn the runways around** lands and departs the other way.
+
 ## Procedures, terrain and phraseology
 
 - **Headings are magnetic**, as pilots fly them: each airport has its magnetic variation, and every heading said, shown or read back is magnetic (the radar's compass rose too).

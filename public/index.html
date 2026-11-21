@@ -489,6 +489,12 @@ body.quiet .score{display:none}
 #mpHud{position:fixed;left:50%;top:6px;transform:translateX(-50%);z-index:60;display:flex;gap:8px;align-items:center;padding:4px 10px;border-radius:6px;background:rgba(10,15,22,.92);border:1px solid var(--rule2);font-family:var(--mono);font-size:12px;color:var(--text2)}
 #mpHud span{padding:1px 6px;border-radius:4px;border:1px solid var(--rule2);color:var(--faint)}#mpHud span.me{color:var(--tx);border-color:var(--tx)}#mpHud span.them{color:var(--ok);border-color:#2E7D52}#mpHud em{color:var(--warn);font-style:normal}
 @media (max-width:700px){.mpcols{grid-template-columns:1fr}}
+#rwyPanel{position:fixed;top:52px;left:50%;transform:translateX(-50%);z-index:70;width:min(560px,94vw);background:rgba(10,15,22,.97);border:1px solid var(--rule2);border-radius:8px;padding:10px 12px;box-shadow:0 8px 30px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:8px;font-size:13px}
+#rwyPanel .rph{display:flex;justify-content:space-between;align-items:center}#rwyPanel .rph b{font-family:var(--cond);letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+#rwyPanel .rpr{display:flex;flex-direction:column;gap:6px;padding:8px;border:1px solid var(--rule);border-radius:6px}
+#rwyPanel .rpn{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}#rwyPanel .rpn b{font-family:var(--mono);font-size:17px;color:var(--text)}#rwyPanel .rpn span{color:var(--faint);font-family:var(--mono)}
+#rwyPanel em{font-style:normal;color:var(--text2)}#rwyPanel em.u-closed{color:var(--bad)}#rwyPanel em.u-off{color:var(--faint)}#rwyPanel em.u-both{color:var(--warn)}
+#rwyPanel .rpb{display:flex;gap:6px;flex-wrap:wrap}#rwyPanel .cbtn.on{border-color:var(--tx);color:var(--text)}#rwyPanel .rpo{color:var(--dim)}
 /* accessibility: high contrast */
 body.hc{--text:#FFFFFF;--text2:#F0F4F8;--dim:#C9D4E0;--faint:#A9B8C8}
 body.hc .phrase,body.hc .cbtn,body.hc .tbtn{border-color:#9FB3C8}
@@ -555,6 +561,7 @@ body.calm *{animation:none!important;transition:none!important}
     <div class="fac"><b id="aptIcao">CYVR</b><span id="aptName">Vancouver International</span><i id="netDot"></i></div>
     <div id="atis"></div>
     <button class="tbtn" id="atisBtn" title="Listen to the ATIS broadcast">ATIS</button>
+    <button class="tbtn" id="rwyBtn" title="Runways: which runway does what, close and reopen them" onclick="window.RC && RC.toggle()">RWY</button>
     <div class="speed" id="speedCtl" role="group" aria-label="Simulation speed">
       <button data-s="0" aria-label="Pause">❚❚</button><button data-s="1">1×</button><button data-s="2">2×</button><button data-s="4">4×</button><button data-s="8">8×</button>
     </div>
@@ -1769,6 +1776,7 @@ function simStep(dt) {
   if (window.RTools) RTools.step(dt);
   if (window.Replay) Replay.step();
   if (window.Gops) Gops.tick();
+  if (window.RC) RC.step(dt);
   if (window.Env) Env.step();
   // spawning
   const cap = { light: 8, medium: 12, heavy: 16 }[S.density];
@@ -2572,6 +2580,7 @@ const AI = {
         ac.aiNext = S.t + 20;
         const sug = vectorSuggestion(ac, false);
         if (sug.none) continue;
+        if (window.Sit && Sit.closed(S.rwyArr)) { const ha = Sit.holdAdvice(ac, sug, null); if (ha && !ha.none) { this.say(ac, pos, ha.text); continue; } } // nowhere to land: into the hold
         // only transmit when the plan actually changed — a real controller doesn't repeat headings
         const h = (sug.text.match(/heading (\d{3})/) || [])[1], al = (sug.text.match(/maintain (\d{4,5})/) || [])[1];
         const newHdg = h && Math.abs(hdgDiff(ac.tgtHdg, gameOf(+h))) > 20; // what's said is magnetic
@@ -4239,8 +4248,8 @@ const UI = {
       box.innerHTML = `<div class="ch"><span class="k">Coach</span></div>
         ${ac ? nameCard(ac) : S.sel && S.aircraft.includes(S.sel) ? nameCard(S.sel) : ''}
         <div class="ctitle">${ac ? `<span class="cs">${ac.cs}</span> — nothing to say right now.` : S.sel && S.aircraft.includes(S.sel) ? `<span class="cs">${S.sel.cs}</span> is on ${POSNAME[S.sel.freq] || S.sel.freq}${S.staffed[S.sel.freq] ? '' : ', worked by the AI'}.` : pending ? 'Select an aircraft' : 'Frequency is quiet'}</div>
-        <div class="why">${ac ? esc(longStatus(ac)) + '. ' : ''}Amber strips and targets are waiting for you. ${matchMedia('(pointer: coarse)').matches ? 'Tap one' : 'Click one (or press Tab)'} and the coach shows the standard call.</div>
-        <div class="why">Every call: <b>callsign first</b>, then the instruction. Pilots read back what they heard.</div>`;
+        <div class="why">${ac ? esc(longStatus(ac)) + '. ' : ''}Aircraft waiting for you are shown in amber. ${matchMedia('(pointer: coarse)').matches ? 'Tap one' : 'Click one (or press Tab)'} to see what to say.</div>
+        <div class="why">Always say the aircraft's <b>callsign first</b>, then the instruction. The pilot repeats it back: if they got it wrong, correct them.</div>`;
       return;
     }
     const lvl = sug.none ? 0 : Coach.level(sug.type);
@@ -4490,6 +4499,7 @@ function startSession() {
   if (window.Env) Env.afterReset();
   Strips.reset();
   if (window.Replay) Replay.reset();
+  if (window.RC) RC.reset();
   TX.by.clear(); TX.last = null;
   UI.log('SYS', `${APT.name} (${APT.icao}). ATIS ${S.atis}: wind ${windSay()}, ${mixedOps() ? 'departing and landing ' + depRwyName() : 'departures ' + depRwyName() + ', arrivals ' + arrRwyName()}${Object.values(RWY).some(r => r.closed) ? ' (' + Object.values(RWY).filter(r => r.closed).map(r => r.names.E + '/' + r.names.W).join(', ') + ' closed)' : ''}. You are working: ${POSORDER.filter(p => S.staffed[p]).map(p => POSNAME[p]).join(', ') || 'nothing (watch mode)'}.`, 'sys');
   // initial traffic
@@ -4857,5 +4867,6 @@ window.addEventListener('DOMContentLoaded', init);
 <script src="vendor/three.min.js"></script>
 <script src="tower3d.js"></script>
 <script src="mp.js"></script>
+<script src="rwyctl.js"></script>
 <script src="settings.js"></script>
 </body></html>
