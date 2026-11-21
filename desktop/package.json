@@ -1,7 +1,7 @@
 {
   "name": "vector-atc-desktop",
   "productName": "VECTOR ATC",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "VECTOR ATC: a voice air traffic control game",
   "author": "Moat Softwares",
   "main": "main.js",
